@@ -81,45 +81,87 @@ namespace WindowsApplication1
 		[DllImport("Everything32.dll")]
 		public static extern void Everything_Reset();
 
-		public Form1()
+        private int _visibleItems;
+        private int _Results;
+        private int _LoopEnd;
+
+
+        public Form1()
 		{
 			InitializeComponent();
 		}
 
-		private void button1_Click(object sender, EventArgs e)
-		{
-			int i;
-			const int bufsize = 260; 
-			StringBuilder buf = new StringBuilder(bufsize);
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            // set the search
+            Everything_SetSearchW(textBox1.Text);
 
-			// set the search
-			Everything_SetSearchW(textBox1.Text);
+            // execute the query
+            Everything_QueryW(true);
 
-			// use our own custom scrollbar... 			
-			// Everything_SetMax(listBox1.ClientRectangle.Height / listBox1.ItemHeight);
-			// Everything_SetOffset(VerticalScrollBarPosition...);
-			
-			// execute the query
-			Everything_QueryW(true);
+            updateListBoxItem();
+            vScrollBar1.Value = 0;
+        }
 
-			// sort by path
-			// Everything_SortResultsByPath();
+        private void textBox1_KeyUp(object sender, KeyEventArgs e)
+        {
+            // set the search
+            Everything_SetSearchW(textBox1.Text);
 
-			// clear the old list of results			
-			listBox1.Items.Clear();
+            // execute the query
+            Everything_QueryW(true);
 
-			// set the window title
-			Text = textBox1.Text + " - " + Everything_GetNumResults() + " Results";
-			
-			// loop through the results, adding each result to the listbox.
-			for (i = 0; i < Everything_GetNumResults(); i++)
-			{
-				// get the result's full path and file name.
-                Everything_GetResultFullPathNameW(i, buf, bufsize);
+            updateListBoxItem();
+            vScrollBar1.Value = 0;
+        }
 
-				// add it to the list box				
-				listBox1.Items.Insert(i,buf);
-			}
-		}
-	}
+        private void Form1_Resize(object sender, EventArgs e)
+        {
+            updateListBoxItem();
+        }
+
+        private void vScrollBar1_Scroll(object sender, ScrollEventArgs e)
+        {
+            updateListBoxItem();
+
+            label1.Text = vScrollBar1.Maximum.ToString() + ", " + vScrollBar1.Value.ToString();
+        }
+
+        private void updateListBoxItem()
+        {
+            const int bufsize = 260;
+            StringBuilder buf = new StringBuilder(bufsize);
+
+            //속도 향상을 위해 List컨트롤에 파일목록을 한꺼번에 모두 넣지 않고 눈에 보이는 것만 넣는다.
+            // _Results <= _LoopEnd <= _visibleItems
+            _visibleItems = listBox1.ClientRectangle.Height / listBox1.ItemHeight;
+            _Results = Everything_GetNumResults();
+            _LoopEnd = (_Results <= _visibleItems) ? _Results : _visibleItems;
+
+            toolStripStatusLabel1.Text = _Results + "개 항목";
+
+            if (_Results <= _visibleItems)
+            {
+                vScrollBar1.Maximum = 0;
+                vScrollBar1.Value = 0;
+            } else {
+                vScrollBar1.Maximum = _Results - _visibleItems;
+            }
+
+            // 정렬
+            // Everything_SortResultsByPath();
+
+            // 지우고 새로 그린다.
+            listBox1.Items.Clear();
+
+            
+
+            //검색한 전체 파일목록 중 눈에 보이는 부분을 가져와서 그린다.
+            for (int i = 0; i < _LoopEnd; i++)
+            {
+                Everything_GetResultFullPathNameW(vScrollBar1.Value + i, buf, bufsize);
+                listBox1.Items.Insert(i, buf);
+            }
+        }
+    }
 }
